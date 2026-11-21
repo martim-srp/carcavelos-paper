@@ -22,11 +22,20 @@ HINT_COST = 15  # minutes, used when the case file's clock has no hint_cost
 # and each lie caught adds, and the top, where they crack.
 NERVES_START, NERVES_PER_CARD, NERVES_PER_LIE, NERVES_MAX = 10, 30, 20, 100
 ACCUSE_NOW_MINUTES = 30  # with this little time left, the next step is to accuse
+# Questions the guide suggests once every card is found, before the notebook. Each answers a
+# "why" that no evidence card holds (in one variant the Teaching Assistant's motive is only told
+# by the Professor). The same in every variant, so it never points at the culprit.
+GUIDE_QUESTIONS = (
+    {"suspect": "professor", "topic": "teaching_assistant",
+     "why": "The rankings explain the students. The Companion has her own secrets. But what does the "
+            "Teaching Assistant get out of any of this? The Professor is their boss. Ask him about the TA."},
+)
 # The detective's rank at the end of a solved case, best first: (lowest score, title).
 RANKS = ((85, "Chief Inspector"), (70, "Inspector"), (55, "Detective Sergeant"), (0, "Detective Constable"))
 COLD_RANK = "Case gone cold"
 # How a hint names a topic: "Ask the Professor about the exam."
-_HINT_TOPICS = {"alibi": "their alibi", "exam": "the exam", "report": "the report", "work": "their work"}
+_HINT_TOPICS = {"alibi": "their alibi", "exam": "the exam", "report": "the report", "work": "their work",
+                "teaching_assistant": "the Teaching Assistant"}
 
 # Things that look like a password or an API key. Used for the Companion's password trap.
 _KEY_PATTERN = re.compile(r"\b(sk|pk|rk|ghp|gho|xoxb|xoxp)[-_][A-Za-z0-9_-]{8,}", re.IGNORECASE)
@@ -705,6 +714,11 @@ class Engine:
                 return step
         if any(event["action"] == "accuse" for event in game.history):
             return {"do": "accuse", "text": "Change the parts that were wrong and accuse again."}
+        asked = {(e.get("suspect"), e.get("topic")) for e in game.history if e["action"] == "ask"}
+        for rule in GUIDE_QUESTIONS:
+            if (rule["suspect"], rule["topic"]) not in asked and rule["topic"] in self.topics_for(rule["suspect"]):
+                return {"do": "ask", "suspect": rule["suspect"], "topic": rule["topic"],
+                        "text": self._ask_text(game, rule), "why": rule["why"]}
         return {"do": "sheet", "text": "You have every card. Cross off what can't be, then accuse."}
 
     def hint_list(self, game):
